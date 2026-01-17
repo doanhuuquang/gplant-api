@@ -1,21 +1,20 @@
-﻿using Azure;
-using Gplant.API.ApiResponse;
-using Microsoft.AspNetCore.Authentication;
+﻿using Gplant.API.ApiResponse;
 using Microsoft.AspNetCore.Authentication.Facebook;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Gplant.Application.Abstracts;
 using Gplant.Domain.DTOs.Requests;
 using Gplant.Domain.Entities;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
 
 namespace Gplant.API.Controllers
 {
     [Route("api/account")]
     [ApiController]
-    public class AccountController(IAccountService accountService, IOTPService otpService, SignInManager<User> signInManager, LinkGenerator linkGenerator) : ControllerBase
+    public class AccountController(IAccountService accountService, SignInManager<User> signInManager, LinkGenerator linkGenerator) : ControllerBase
     {
         /// <summary>
         ///

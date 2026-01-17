@@ -1,7 +1,7 @@
-﻿using System.Net;
-using Gplant.API.ApiResponse;
-using Microsoft.AspNetCore.Diagnostics;
+﻿using Gplant.API.ApiResponse;
 using Gplant.Domain.Exceptions;
+using Microsoft.AspNetCore.Diagnostics;
+using System.Net;
 
 namespace Gplant.API.Handlers
 {

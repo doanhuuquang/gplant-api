@@ -23,6 +23,19 @@ namespace Gplant.Application.Services
             var result = await userManager.CreateAsync(user, registerRequest.Password);
 
             if (!result.Succeeded) throw new RegistrationFailedException(result.Errors.Select(x => x.Description));
+
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user);
+            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
+
+            var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
+
+            user.RefreshToken = refreshTokenValue;
+            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
+
+            await userManager.UpdateAsync(user);
+
+            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("ACCESS_TOKEN", jwtToken, expirationDateInUtc);
+            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("REFRESH_TOKEN", refreshTokenValue, refreshTokenExpirationInUtc);
         }
 
         public async Task LoginAsync(LoginRequest loginRequest)
