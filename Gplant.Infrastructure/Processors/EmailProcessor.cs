@@ -23,7 +23,7 @@ namespace Gplant.Infrastructure.Processors
                 Credentials = new NetworkCredential(email, password)
             };
 
-            var message = new MailMessage(email, emailRequest.Receptor, emailRequest.subject, emailRequest.body);
+            var message = new MailMessage(email, emailRequest.Receptor, emailRequest.Subject, emailRequest.Body);
 
             await smtpClient.SendMailAsync(message);
         }

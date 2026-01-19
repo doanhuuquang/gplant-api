@@ -13,19 +13,21 @@ namespace Gplant.Infrastructure.Processors
 {
     public class AuthTokenProcessor(IOptions<JwtOptions> jwtOptions, IHttpContextAccessor httpContextAccessor) : IAuthTokenProcessor
     {
-        public (string jwtToken, DateTime expiresAtUtc) GenerateJwtToken(User user)
+        public (string jwtToken, DateTime expiresAtUtc) GenerateJwtToken(User user, IEnumerable<string> roles)
         {
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Value.Secret));
 
             var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
-                new Claim(ClaimTypes.NameIdentifier, user.ToString()),
+                new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
+                new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             };
+
+            foreach (var role in roles) claims.Add(new Claim(ClaimTypes.Role, role));
 
             var expires = DateTime.UtcNow.AddMinutes(jwtOptions.Value.ExpirationTimeInMinutes);
 
@@ -36,7 +38,7 @@ namespace Gplant.Infrastructure.Processors
                 expires: expires,
                 signingCredentials: credentials
             );
-
+            
             var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
 
             return (jwtToken, expires);

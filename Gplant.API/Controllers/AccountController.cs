@@ -102,6 +102,44 @@ namespace Gplant.API.Controllers
         /// <summary>
         /// 
         /// </summary>
+        /// <returns></returns>
+        [HttpPost("recover-username")]
+        public async Task<IActionResult> RecoverUsername(RecoverUsernameRequest recoverUsernameRequest)
+        {
+            await accountService.RecoverUsernameAsync(recoverUsernameRequest);
+
+            var response = new SuccessResponse<object?>(
+                StatusCode: 200,
+                Message: "Recover username successful.",
+                Data: null,
+                Timestamp: DateTime.UtcNow
+            );
+
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordRequest resetPasswordRequest)
+        {
+            await accountService.ResetPasswordAsync(resetPasswordRequest);
+
+            var response = new SuccessResponse<object?>(
+                StatusCode: 200,
+                Message: "Reset password successful.",
+                Data: null,
+                Timestamp: DateTime.UtcNow
+            );
+
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
         /// <param name="returnUrl"></param>
         /// <returns></returns>
         [HttpGet("login/google")]
@@ -211,44 +249,6 @@ namespace Gplant.API.Controllers
             await accountService.LoginWithMicrosoftAsync(result.Principal);
 
             return Redirect(returnUrl);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        [HttpPost("recover-username")]
-        public async Task<IActionResult> RecoverUsername(RecoverUsernameRequest recoverUsernameRequest)
-        {
-            await accountService.RecoverUsernameAsync(recoverUsernameRequest);
-
-            var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Recover username successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
-            );
-
-            return Ok(response);
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword(ResetPasswordRequest resetPasswordRequest)
-        {
-            await accountService.ResetPasswordAsync(resetPasswordRequest);
-
-            var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Reset password successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
-            );
-
-            return Ok(response);
         }
     }
 }

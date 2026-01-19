@@ -11,16 +11,17 @@ namespace Gplant.API.Handlers
         {
             var (statusCode, errorCode) = exception switch
             {
-                LoginNotFoundAccountException => (HttpStatusCode.NotFound, "LoginNotFoundAccount"),
-                LoginIncorrectPasswordException => (HttpStatusCode.Unauthorized, "LoginIncorrectPassword"),
-                UserAlreadyExistsException => (HttpStatusCode.Conflict, "UserAlreadyExists"),
-                RegistrationFailedException => (HttpStatusCode.BadRequest, "RegistrationFailed"),
-                RefreshTokenException => (HttpStatusCode.Unauthorized, "RefreshTokenError"),
-                UserNotExistsException => (HttpStatusCode.NotFound, "UserNotExists"),
-                OTPException => (HttpStatusCode.BadRequest, "OTPError"),
-                ActionTokenException => (HttpStatusCode.BadRequest, "ActionTokenError"),
-                ResetPasswordException => (HttpStatusCode.BadRequest, "ResetPasswordError"),
-                _ => (HttpStatusCode.InternalServerError, "InternalServerError")
+                LoginNotFoundAccountException       => (HttpStatusCode.NotFound, "LoginNotFoundAccount"),
+                LoginIncorrectPasswordException     => (HttpStatusCode.Unauthorized, "LoginIncorrectPassword"),
+                UserAlreadyExistsException          => (HttpStatusCode.Conflict, "UserAlreadyExists"),
+                RegistrationFailedException         => (HttpStatusCode.BadRequest, "RegistrationFailed"),
+                RefreshTokenException               => (HttpStatusCode.Unauthorized, "RefreshTokenError"),
+                UserNotExistsException              => (HttpStatusCode.NotFound, "UserNotExists"),
+                OTPException                        => (HttpStatusCode.BadRequest, "OTPError"),
+                ActionTokenException                => (HttpStatusCode.BadRequest, "ActionTokenError"),
+                ResetPasswordException              => (HttpStatusCode.BadRequest, "ResetPasswordError"),
+                CategoryException                   => (HttpStatusCode.BadRequest, "CategoryError"),
+                _                                   => (HttpStatusCode.InternalServerError, "InternalServerError")
 
             };
 
@@ -28,13 +29,13 @@ namespace Gplant.API.Handlers
 
             var response = new ErrorResponse(
                 StatusCode: (int)statusCode,
-                Error: errorCode,
-                Message: exception.Message,
-                Timestamp: DateTime.UtcNow
+                Error:      errorCode,
+                Message:    exception.Message,
+                Timestamp:  DateTime.UtcNow
             );
 
-            httpContext.Response.StatusCode = (int)statusCode;
-            httpContext.Response.ContentType = "application/json";
+            httpContext.Response.StatusCode     = (int)statusCode;
+            httpContext.Response.ContentType    = "application/json";
 
             await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
 

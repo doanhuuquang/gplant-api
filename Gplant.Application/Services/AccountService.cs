@@ -16,21 +16,23 @@ namespace Gplant.Application.Services
 
             if (userExists is not null) throw new UserAlreadyExistsException(email: registerRequest.Email);
 
-            var user = User.Create(registerRequest.Email);
-            user.FirstName = registerRequest.FirstName;
-            user.LastName = registerRequest.LastName;
+            var user        = User.Create(registerRequest.Email);
+            user.FirstName  = registerRequest.FirstName;
+            user.LastName   = registerRequest.LastName;
 
             var result = await userManager.CreateAsync(user, registerRequest.Password);
 
             if (!result.Succeeded) throw new RegistrationFailedException(result.Errors.Select(x => x.Description));
 
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user);
-            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
+            var roles = await userManager.GetRolesAsync(user);
+
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
+            var refreshTokenValue               = authTokenProcessor.GenerateRefreshToken();
 
             var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
 
-            user.RefreshToken = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
+            user.RefreshToken               = refreshTokenValue;
+            user.RefreshTokenExpiresAtUtc   = refreshTokenExpirationInUtc;
 
             await userManager.UpdateAsync(user);
 
@@ -44,13 +46,14 @@ namespace Gplant.Application.Services
 
             if (await userManager.CheckPasswordAsync(user, loginRequest.Password) == false) throw new LoginIncorrectPasswordException();
 
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user);
-            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
+            var roles = await userManager.GetRolesAsync(user);
 
-            var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
+            var refreshTokenValue               = authTokenProcessor.GenerateRefreshToken();
+            var refreshTokenExpirationInUtc     = DateTime.UtcNow.AddDays(30);
 
-            user.RefreshToken = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
+            user.RefreshToken               = refreshTokenValue;
+            user.RefreshTokenExpiresAtUtc   = refreshTokenExpirationInUtc;
 
             await userManager.UpdateAsync(user);
 
@@ -66,8 +69,8 @@ namespace Gplant.Application.Services
 
             if (user.RefreshTokenExpiresAtUtc < DateTime.UtcNow) throw new RefreshTokenException("Refresh token is expired!");
 
-            user.RefreshToken = null;
-            user.RefreshTokenExpiresAtUtc = null;
+            user.RefreshToken               = null;
+            user.RefreshTokenExpiresAtUtc   = null;
 
             await userManager.UpdateAsync(user);
 
@@ -83,13 +86,15 @@ namespace Gplant.Application.Services
 
             if (user.RefreshTokenExpiresAtUtc < DateTime.UtcNow) throw new RefreshTokenException("Refresh token is expired!");
 
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user);
-            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
+            var roles = await userManager.GetRolesAsync(user);
+
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
+            var refreshTokenValue               = authTokenProcessor.GenerateRefreshToken();
 
             var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
 
-            user.RefreshToken = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
+            user.RefreshToken               = refreshTokenValue;
+            user.RefreshTokenExpiresAtUtc   = refreshTokenExpirationInUtc;
 
             await userManager.UpdateAsync(user);
 
@@ -137,7 +142,9 @@ namespace Gplant.Application.Services
                 if (!loginResult.Succeeded) throw new ExternalLoginProviderException("Google", $"Unable to login the user: {string.Join(", ", loginResult.Errors.Select(x => x.Description))}");
             }
 
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user);
+            var roles = await userManager.GetRolesAsync(user);
+
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
             var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
 
             var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
@@ -191,7 +198,9 @@ namespace Gplant.Application.Services
                 if (!loginResult.Succeeded) throw new ExternalLoginProviderException("Facebook", $"Unable to login the user: {string.Join(", ", loginResult.Errors.Select(x => x.Description))}");
             }
 
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user);
+            var roles = await userManager.GetRolesAsync(user);
+
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
             var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
 
             var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
@@ -245,7 +254,9 @@ namespace Gplant.Application.Services
                 if (!loginResult.Succeeded) throw new ExternalLoginProviderException("Microsoft", $"Unable to login the user: {string.Join(", ", loginResult.Errors.Select(x => x.Description))}");
             }
 
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user);
+            var roles = await userManager.GetRolesAsync(user);
+
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
             var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
 
             var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
@@ -269,22 +280,22 @@ namespace Gplant.Application.Services
                 var emailRequest = new EmailRequest
                 {
                     Receptor = recoverUsernameRequest.Email,
-                    subject = "Username Recovery",
-                    body = $"Hello {userExists.FirstName},\n\nYour username is: {userExists.UserName}\n\nBest regards,\nQuizzen Team"
+                    Subject = "Username Recovery",
+                    Body = $"Hello {userExists.FirstName},\n\nYour username is: {userExists.UserName}\n\nBest regards,\nQuizzen Team"
                 };
                 await emailProcessor.SendEmail(emailRequest);
             }
         }
 
-        public async Task ResetPasswordAsync(ResetPasswordRequest resetPasswordRequest)
+        public async Task ResetPasswordAsync(ResetPasswordRequest resetPasswordRequest) 
         {
-            var user = await userManager.FindByEmailAsync(resetPasswordRequest.Email) ?? throw new UserNotExistsException(email: resetPasswordRequest.Email);
-            var resetPasswordToken = await actionTokenRepository.GetActionTokenAsync(user.Id, ActionTokenPurpose.ResetPassword) ?? throw new ActionTokenException("Invalid or expired reset password token.");
+            var user                = await userManager.FindByEmailAsync(resetPasswordRequest.Email) ?? throw new UserNotExistsException(email: resetPasswordRequest.Email);
+            var resetPasswordToken  = await actionTokenRepository.GetActionTokenAsync(user.Id, ActionTokenPurpose.ResetPassword) ?? throw new ActionTokenException("Invalid or expired reset password token.");
 
             if (resetPasswordToken.Token != resetPasswordRequest.ResetPasswordToken) throw new ActionTokenException("Invalid reset password token.");
 
-            user.PasswordHash = userManager.PasswordHasher.HashPassword(user, resetPasswordRequest.NewPassword);
-            user.SecurityStamp = Guid.NewGuid().ToString();
+            user.PasswordHash   = userManager.PasswordHasher.HashPassword(user, resetPasswordRequest.NewPassword);
+            user.SecurityStamp  = Guid.NewGuid().ToString();
 
             var result = await userManager.UpdateAsync(user);
 

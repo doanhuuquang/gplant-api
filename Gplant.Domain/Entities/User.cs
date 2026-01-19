@@ -14,8 +14,8 @@ namespace Gplant.Domain.Entities
         {
             return new User
             {
-                UserName = email,
-                Email = email,
+                UserName    = email,
+                Email       = email,
             };
         }
 

@@ -20,8 +20,8 @@ namespace Gplant.Application.Services
                 var emailRequest = new EmailRequest
                 {
                     Receptor = sendOTPToEmailRequest.Email,
-                    subject = "Reset password",
-                    body = $"Hello {userExists.FirstName},\n\nYour OTP is: {otp.Code}\n\nBest regards,\nQuizzen Team"
+                    Subject = "Reset password",
+                    Body = $"Hello {userExists.FirstName},\n\nYour OTP is: {otp.Code}\n\nBest regards,\nQuizzen Team"
                 };
                 await emailProcessor.SendEmail(emailRequest);
             }

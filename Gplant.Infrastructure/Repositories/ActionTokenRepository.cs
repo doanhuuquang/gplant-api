@@ -3,7 +3,6 @@ using Gplant.Application.Abstracts;
 using Gplant.Domain.Entities;
 using Gplant.Domain.enums;
 using System.Security.Cryptography;
-using static System.Net.WebRequestMethods;
 
 namespace Gplant.Infrastructure.Repositories
 {
@@ -35,8 +34,8 @@ namespace Gplant.Infrastructure.Repositories
         public async Task<ActionToken?> GetActionTokenAsync(Guid userId, ActionTokenPurpose actionTokenPurpose)
         {
             var actionToken = await applicationDbContext.ActionTokens.Where(x => x.UserId == userId && !x.IsUsed && x.ExpiresAtUtc > DateTime.UtcNow && x.Purpose == actionTokenPurpose)
-                                                     .OrderByDescending(x => x.CreatedAtUtc)
-                                                     .FirstOrDefaultAsync();
+                                                        .OrderByDescending(x => x.CreatedAtUtc)
+                                                        .FirstOrDefaultAsync();
             return actionToken;
         }
 
