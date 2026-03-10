@@ -1,4 +1,4 @@
-﻿using Gplant.Application.Abstracts;
+﻿using Gplant.Application.Interfaces;
 using System.Security.Cryptography;
 
 namespace Gplant.Application.Security

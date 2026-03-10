@@ -2,10 +2,10 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Gplant.Application.Abstracts;
-using Gplant.Domain.DTOs.Requests;
+using Gplant.Application.Interfaces;
 using Gplant.Domain.DTOs.Responses;
 using Gplant.Domain.Entities;
+using Gplant.Domain.DTOs.Requests.OTP;
 
 namespace Gplant.API.Controllers
 {

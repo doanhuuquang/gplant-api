@@ -1,4 +1,4 @@
-﻿using Gplant.Application.Abstracts;
+﻿using Gplant.Application.Interfaces;
 using Gplant.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +11,11 @@ namespace Gplant.Infrastructure.Repositories
             return await applicationDbContext.Categories.ToListAsync();
         }
 
+        public async Task<List<Category>> GetActiveCategoriesAsync()
+        {
+            return await applicationDbContext.Categories.Where(category => category.IsActive).ToListAsync();
+        }
+
         public async Task<Category?> GetCategoryByIdAsync(Guid id)
         {
             return await applicationDbContext.Categories.FindAsync(id);
@@ -21,9 +26,12 @@ namespace Gplant.Infrastructure.Repositories
             return await applicationDbContext.Categories.FirstOrDefaultAsync(category => category.Slug == slug);
         }
 
-        public async Task<List<Category>> GetCategoriesByParentId(Guid parentId)
+        public async Task<List<Category>> GetSubCategoriesByParentIdAsync(Guid? parentId)
         {
-            return await applicationDbContext.Categories.Where(c => c.ParentId == parentId).ToListAsync();
+            return await applicationDbContext.Categories
+                .Where(c => c.ParentId == parentId && c.IsActive)
+                .OrderBy(c => c.Name)
+                .ToListAsync();
         }
 
         public async Task CreateCategoryAsync(Category category)
@@ -40,6 +48,11 @@ namespace Gplant.Infrastructure.Repositories
         public async Task DeleteCategoryAsync(Category category)
         {
             await applicationDbContext.Categories.Where(c => c.Id == category.Id).ExecuteDeleteAsync();
+        }
+
+        public async Task<bool> HasPlantsAsync(Guid categoryId)
+        {
+            return await applicationDbContext.Plants.AnyAsync(p => p.CategoryId == categoryId);
         }
     }
 }

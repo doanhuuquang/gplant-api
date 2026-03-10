@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Gplant.Application.Abstracts;
+using Gplant.Application.Interfaces;
 using Gplant.Domain.Entities;
 using Gplant.Domain.enums;
 using System.Security.Cryptography;

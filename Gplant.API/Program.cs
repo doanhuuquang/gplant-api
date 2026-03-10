@@ -1,12 +1,13 @@
 ﻿using Gplant.API.ApiResponse;
 using Gplant.API.Handlers;
-using Gplant.Application.Abstracts;
+using Gplant.Application.Interfaces;
 using Gplant.Application.Security;
 using Gplant.Application.Services;
 using Gplant.Domain.Constants;
 using Gplant.Domain.Entities;
 using Gplant.Infrastructure;
 using Gplant.Infrastructure.Options;
+using Gplant.Infrastructure.PaymentGateways;
 using Gplant.Infrastructure.Processors;
 using Gplant.Infrastructure.Repositories;
 using Gplant.Infrastructure.Seed;
@@ -17,7 +18,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,13 +38,18 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 builder.Services.AddEndpointsApiExplorer();
 
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.JwtOptionsKey));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.EmailOptionsKey));
+builder.Services.Configure<VNPayConfig>(builder.Configuration.GetSection("VNPay"));
 
 builder.Services.AddIdentity<User, Role>(options =>
 {
@@ -57,16 +65,45 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlSer
 
 builder.Services.AddScoped<IAuthTokenProcessor, AuthTokenProcessor>();
 builder.Services.AddScoped<IEmailProcessor, EmailProcessor>();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IPlantRepository, PlantRepository>();
+builder.Services.AddScoped<IPlantVariantRepository, PlantVariantRepository>();
+builder.Services.AddScoped<IPlantImageRepository, PlantImageRepository>();
+builder.Services.AddScoped<ICareInstructionRepository, CareInstructionRepository>();
+builder.Services.AddScoped<IOTPRepository, OTPRepository>();
+builder.Services.AddScoped<IActionTokenRepository, ActionTokenRepository>();
+builder.Services.AddScoped<IBannerRepository, BannerRepository>();
+builder.Services.AddScoped<IPlantRepository, PlantRepository>();
+builder.Services.AddScoped<IPlantVariantRepository, PlantVariantRepository>();
+builder.Services.AddScoped<IPlantImageRepository, PlantImageRepository>();
+builder.Services.AddScoped<ICareInstructionRepository, CareInstructionRepository>();
+builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
+builder.Services.AddScoped<ILightningSaleRepository, LightningSaleRepository>();
+builder.Services.AddScoped<ILightningSaleItemRepository, LightningSaleItemRepository>();
+builder.Services.AddScoped<ICartRepository, CartRepository>();
+builder.Services.AddScoped<ICartItemRepository, CartItemRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderItemRepository, OrderItemRepository>();
+builder.Services.AddScoped<IMediaRepository, MediaRepository>();
 
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IOTPService, OTPService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
-
+builder.Services.AddScoped<IBannerService, BannerService>();
+builder.Services.AddScoped<IPlantService, PlantService>();
+builder.Services.AddScoped<IPlantVariantService, PlantVariantService>();
+builder.Services.AddScoped<IPlantImageService, PlantImageService>();
+builder.Services.AddScoped<ICareInstructionService, CareInstructionService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<ILightningSaleService, LightningSaleService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IOTPGenerator, OTPGenerator>();
-builder.Services.AddScoped<IOTPRepository, OTPRepository>();
-builder.Services.AddScoped<IActionTokenRepository, ActionTokenRepository>();
+builder.Services.AddScoped<IPaymentService, VNPayService>();
+builder.Services.AddScoped<IMediaService, MediaService>();
 
 builder.Services
     .AddAuthentication(options =>
@@ -137,6 +174,16 @@ builder.Services
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
         options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+
+        options.Scope.Clear();
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+
+        options.ClaimActions.MapJsonKey(ClaimTypes.Email, "mail");
+        options.ClaimActions.MapJsonKey(ClaimTypes.Email, "userPrincipalName");
+        options.ClaimActions.MapJsonKey(ClaimTypes.GivenName, "givenName");
+        options.ClaimActions.MapJsonKey(ClaimTypes.Surname, "surname");
 
         options.Events.OnRemoteFailure = context =>
         {
@@ -228,6 +275,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseStaticFiles();
 
 app.UseCors("AllowFrontend");
 

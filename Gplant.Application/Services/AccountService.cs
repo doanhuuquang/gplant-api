@@ -1,15 +1,38 @@
-﻿using Gplant.Application.Abstracts;
-using Microsoft.AspNetCore.Identity;
-using Gplant.Domain.DTOs.Requests;
+﻿using Gplant.Application.Interfaces;
+using Gplant.Domain.Constants;
+using Gplant.Domain.DTOs.Requests.Auth;
+using Gplant.Domain.DTOs.Requests.Email;
 using Gplant.Domain.Entities;
 using Gplant.Domain.enums;
 using Gplant.Domain.Exceptions;
+using Gplant.Domain.Exceptions.ActionToken;
+using Gplant.Domain.Exceptions.Auth;
+using Gplant.Domain.Exceptions.User;
+using Microsoft.AspNetCore.Identity;
 using System.Security.Claims;
 
 namespace Gplant.Application.Services
 {
     public class AccountService(IAuthTokenProcessor authTokenProcessor, IEmailProcessor emailProcessor, UserManager<User> userManager, IUserRepository userRepository, IActionTokenRepository actionTokenRepository) : IAccountService
     {
+        private async Task IssueAuthTokensAsync(User user)
+        {
+            var roles = await userManager.GetRolesAsync(user);
+
+            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
+            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
+
+            var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
+
+            user.RefreshToken = refreshTokenValue;
+            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
+
+            await userManager.UpdateAsync(user);
+
+            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("ACCESS_TOKEN", jwtToken, expirationDateInUtc);
+            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("REFRESH_TOKEN", refreshTokenValue, refreshTokenExpirationInUtc);
+        }
+
         public async Task RegisterAsync(RegisterRequest registerRequest)
         {
             var userExists = await userManager.FindByEmailAsync(registerRequest.Email);
@@ -24,20 +47,8 @@ namespace Gplant.Application.Services
 
             if (!result.Succeeded) throw new RegistrationFailedException(result.Errors.Select(x => x.Description));
 
-            var roles = await userManager.GetRolesAsync(user);
-
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
-            var refreshTokenValue               = authTokenProcessor.GenerateRefreshToken();
-
-            var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
-
-            user.RefreshToken               = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc   = refreshTokenExpirationInUtc;
-
-            await userManager.UpdateAsync(user);
-
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("ACCESS_TOKEN", jwtToken, expirationDateInUtc);
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("REFRESH_TOKEN", refreshTokenValue, refreshTokenExpirationInUtc);
+            await IssueAuthTokensAsync(user);
+            await userManager.AddToRoleAsync(user, Roles.Customer);
         }
 
         public async Task LoginAsync(LoginRequest loginRequest)
@@ -46,19 +57,7 @@ namespace Gplant.Application.Services
 
             if (await userManager.CheckPasswordAsync(user, loginRequest.Password) == false) throw new LoginIncorrectPasswordException();
 
-            var roles = await userManager.GetRolesAsync(user);
-
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
-            var refreshTokenValue               = authTokenProcessor.GenerateRefreshToken();
-            var refreshTokenExpirationInUtc     = DateTime.UtcNow.AddDays(30);
-
-            user.RefreshToken               = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc   = refreshTokenExpirationInUtc;
-
-            await userManager.UpdateAsync(user);
-
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("ACCESS_TOKEN", jwtToken, expirationDateInUtc);
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("REFRESH_TOKEN", refreshTokenValue, refreshTokenExpirationInUtc);
+            await IssueAuthTokensAsync(user);
         }
 
         public async Task LogoutAsync(string? refreshToken)
@@ -129,6 +128,7 @@ namespace Gplant.Application.Services
                     };
 
                     var result = await userManager.CreateAsync(newUser);
+                    await userManager.AddToRoleAsync(newUser, Roles.Customer);
 
                     if (!result.Succeeded) throw new ExternalLoginProviderException("Google", $"Unable to creat user: {string.Join(", ", result.Errors.Select(x => x.Description))}");
 
@@ -142,20 +142,7 @@ namespace Gplant.Application.Services
                 if (!loginResult.Succeeded) throw new ExternalLoginProviderException("Google", $"Unable to login the user: {string.Join(", ", loginResult.Errors.Select(x => x.Description))}");
             }
 
-            var roles = await userManager.GetRolesAsync(user);
-
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
-            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
-
-            var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
-
-            user.RefreshToken = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
-
-            await userManager.UpdateAsync(user);
-
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("ACCESS_TOKEN", jwtToken, expirationDateInUtc);
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("REFRESH_TOKEN", refreshTokenValue, refreshTokenExpirationInUtc);
+            await IssueAuthTokensAsync(user);
         }
 
         public async Task LoginWithFacebookAsync(ClaimsPrincipal? claimsPrincipal)
@@ -185,6 +172,7 @@ namespace Gplant.Application.Services
                     };
 
                     var result = await userManager.CreateAsync(newUser);
+                    await userManager.AddToRoleAsync(newUser, Roles.Customer);
 
                     if (!result.Succeeded) throw new ExternalLoginProviderException("Facebook", $"Unable to creat user: {string.Join(", ", result.Errors.Select(x => x.Description))}");
 
@@ -198,29 +186,24 @@ namespace Gplant.Application.Services
                 if (!loginResult.Succeeded) throw new ExternalLoginProviderException("Facebook", $"Unable to login the user: {string.Join(", ", loginResult.Errors.Select(x => x.Description))}");
             }
 
-            var roles = await userManager.GetRolesAsync(user);
-
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
-            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
-
-            var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
-
-            user.RefreshToken = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
-
-            await userManager.UpdateAsync(user);
-
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("ACCESS_TOKEN", jwtToken, expirationDateInUtc);
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("REFRESH_TOKEN", refreshTokenValue, refreshTokenExpirationInUtc);
+            await IssueAuthTokensAsync(user);
         }
 
         public async Task LoginWithMicrosoftAsync(ClaimsPrincipal? claimsPrincipal)
         {
             if (claimsPrincipal == null) throw new ExternalLoginProviderException("Microsoft", "ClaimsPrincipal is null");
 
-            var email = claimsPrincipal.FindFirstValue(ClaimTypes.Email) ?? throw new ExternalLoginProviderException("Microsoft", "Email not found");
+            // Tìm email từ nhiều claim types khác nhau
+            var email = claimsPrincipal.FindFirstValue(ClaimTypes.Email)
+                        ?? claimsPrincipal.FindFirstValue("email")
+                        ?? claimsPrincipal.FindFirstValue("mail")
+                        ?? claimsPrincipal.FindFirstValue("preferred_username")
+                        ?? claimsPrincipal.FindFirstValue(ClaimTypes.Upn)
+                        ?? throw new ExternalLoginProviderException("Microsoft", "Email not found");
 
-            var providerKey = claimsPrincipal.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new ExternalLoginProviderException("Microsoft", "Provider key not found");
+            var providerKey = claimsPrincipal.FindFirstValue(ClaimTypes.NameIdentifier)
+                              ?? claimsPrincipal.FindFirstValue("sub")
+                              ?? throw new ExternalLoginProviderException("Microsoft", "Provider key not found");
 
             var user = await userManager.FindByLoginAsync("Microsoft", providerKey);
 
@@ -230,17 +213,28 @@ namespace Gplant.Application.Services
 
                 if (user == null)
                 {
+                    // Tìm FirstName và LastName từ nhiều claims
+                    var firstName = claimsPrincipal.FindFirstValue(ClaimTypes.GivenName)
+                                    ?? claimsPrincipal.FindFirstValue("given_name")
+                                    ?? claimsPrincipal.FindFirstValue("givenName")
+                                    ?? string.Empty;
+
+                    var lastName = claimsPrincipal.FindFirstValue(ClaimTypes.Surname)
+                                   ?? claimsPrincipal.FindFirstValue("family_name")
+                                   ?? claimsPrincipal.FindFirstValue("surname")
+                                   ?? string.Empty;
+
                     var newUser = new User
                     {
                         UserName = email,
                         Email = email,
-                        FirstName = claimsPrincipal.FindFirstValue(ClaimTypes.GivenName) ?? string.Empty,
-                        LastName = claimsPrincipal.FindFirstValue(ClaimTypes.Surname) ?? string.Empty,
-
+                        FirstName = firstName,
+                        LastName = lastName,
                         EmailConfirmed = true
                     };
 
                     var result = await userManager.CreateAsync(newUser);
+                    await userManager.AddToRoleAsync(newUser, Roles.Customer);
 
                     if (!result.Succeeded) throw new ExternalLoginProviderException("Microsoft", $"Unable to creat user: {string.Join(", ", result.Errors.Select(x => x.Description))}");
 
@@ -254,20 +248,7 @@ namespace Gplant.Application.Services
                 if (!loginResult.Succeeded) throw new ExternalLoginProviderException("Microsoft", $"Unable to login the user: {string.Join(", ", loginResult.Errors.Select(x => x.Description))}");
             }
 
-            var roles = await userManager.GetRolesAsync(user);
-
-            var (jwtToken, expirationDateInUtc) = authTokenProcessor.GenerateJwtToken(user, roles);
-            var refreshTokenValue = authTokenProcessor.GenerateRefreshToken();
-
-            var refreshTokenExpirationInUtc = DateTime.UtcNow.AddDays(30);
-
-            user.RefreshToken = refreshTokenValue;
-            user.RefreshTokenExpiresAtUtc = refreshTokenExpirationInUtc;
-
-            await userManager.UpdateAsync(user);
-
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("ACCESS_TOKEN", jwtToken, expirationDateInUtc);
-            authTokenProcessor.WriteAuthTokenAsHttpOnlyCookie("REFRESH_TOKEN", refreshTokenValue, refreshTokenExpirationInUtc);
+            await IssueAuthTokensAsync(user);
         }
 
         public async Task RecoverUsernameAsync(RecoverUsernameRequest recoverUsernameRequest)

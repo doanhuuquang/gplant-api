@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Gplant.Application.Abstracts;
+using Gplant.Application.Interfaces;
 using Gplant.Domain.Entities;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -53,22 +53,35 @@ namespace Gplant.Infrastructure.Processors
 
         public void WriteAuthTokenAsHttpOnlyCookie(string cookieName, string token, DateTime expiration)
         {
+            var isHttps = httpContextAccessor.HttpContext!.Request.IsHttps;
+
             httpContextAccessor?.HttpContext?.Response.Cookies.Append(
-            cookieName,
-            token,
-            new CookieOptions
-            {
-                HttpOnly = true,
-                Expires = expiration,
-                IsEssential = true,
-                Secure = true,
-            }
-        );
+                cookieName,
+                token,
+                new CookieOptions
+                {
+                    HttpOnly = true,
+                    Expires = expiration,
+                    IsEssential = true,
+                    Secure = isHttps,
+                    SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax
+                }
+            );
         }
 
         public void DeleteAuthTokenCookie(string cookieName)
         {
-            httpContextAccessor?.HttpContext?.Response.Cookies.Delete(cookieName);
+            var isHttps = httpContextAccessor.HttpContext!.Request.IsHttps;
+
+            httpContextAccessor.HttpContext.Response.Cookies.Delete(
+                cookieName,
+                new CookieOptions
+                {
+                    Path = "/",
+                    Secure = isHttps,
+                    SameSite = isHttps ? SameSiteMode.None : SameSiteMode.Lax
+                }
+            );
         }
     }
 }

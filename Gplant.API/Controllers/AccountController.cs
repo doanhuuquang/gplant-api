@@ -2,13 +2,13 @@
 using Microsoft.AspNetCore.Authentication.Facebook;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
-using Gplant.Application.Abstracts;
-using Gplant.Domain.DTOs.Requests;
+using Gplant.Application.Interfaces;
 using Gplant.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
+using Gplant.Domain.DTOs.Requests.Auth;
 
 namespace Gplant.API.Controllers
 {
@@ -27,10 +27,10 @@ namespace Gplant.API.Controllers
             await accountService.RegisterAsync(registerRequest);
 
             var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Register successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
+                StatusCode  : StatusCodes.Status200OK,
+                Message     : "Register successful.",
+                Data        : null,
+                Timestamp   : DateTime.UtcNow
             );
 
             return Ok(response);
@@ -47,10 +47,10 @@ namespace Gplant.API.Controllers
             await accountService.LoginAsync(loginRequest);
 
             var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Login successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
+                StatusCode  : StatusCodes.Status200OK,
+                Message     : "Login successful.",
+                Data        : null,
+                Timestamp   : DateTime.UtcNow
             );
 
             return Ok(response);
@@ -69,10 +69,10 @@ namespace Gplant.API.Controllers
             await accountService.LogoutAsync(refreshToken);
 
             var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Logout successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
+                StatusCode  : StatusCodes.Status200OK,
+                Message     : "Logout successful.",
+                Data        : null,
+                Timestamp   : DateTime.UtcNow
             );
 
             return Ok(response);
@@ -90,10 +90,10 @@ namespace Gplant.API.Controllers
             await accountService.RefreshTokenAsync(refreshToken);
 
             var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Refresh token successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
+                StatusCode  : StatusCodes.Status200OK,
+                Message     : "Refresh token successful.",
+                Data        : null,
+                Timestamp   : DateTime.UtcNow
             );
 
             return Ok(response);
@@ -109,10 +109,10 @@ namespace Gplant.API.Controllers
             await accountService.RecoverUsernameAsync(recoverUsernameRequest);
 
             var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Recover username successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
+                StatusCode  : StatusCodes.Status200OK,
+                Message     : "Recover username successful.",
+                Data        : null,
+                Timestamp   : DateTime.UtcNow
             );
 
             return Ok(response);
@@ -128,10 +128,10 @@ namespace Gplant.API.Controllers
             await accountService.ResetPasswordAsync(resetPasswordRequest);
 
             var response = new SuccessResponse<object?>(
-                StatusCode: 200,
-                Message: "Reset password successful.",
-                Data: null,
-                Timestamp: DateTime.UtcNow
+                StatusCode  : StatusCodes.Status200OK,
+                Message     : "Reset password successful.",
+                Data        : null,
+                Timestamp   : DateTime.UtcNow
             );
 
             return Ok(response);

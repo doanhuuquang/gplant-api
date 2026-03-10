@@ -1,9 +1,9 @@
 ﻿using Gplant.Infrastructure.Options;
 using Microsoft.Extensions.Options;
-using Gplant.Application.Abstracts;
-using Gplant.Domain.DTOs.Requests;
+using Gplant.Application.Interfaces;
 using System.Net;
 using System.Net.Mail;
+using Gplant.Domain.DTOs.Requests.Email;
 
 namespace Gplant.Infrastructure.Processors
 {

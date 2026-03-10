@@ -7,31 +7,26 @@ namespace Gplant.Application.Helpers
     public partial class SlugHelper
     {
         [GeneratedRegex(@"\s+")]
-        private static partial Regex MyRegex();
+        private static partial Regex WhitespaceRegex();
 
         [GeneratedRegex(@"[^a-z0-9\-]")]
-        private static partial Regex MyRegex1();
+        private static partial Regex InvalidCharsRegex();
+
+        [GeneratedRegex(@"-{2,}")]
+        private static partial Regex MultipleHyphensRegex();
+
 
         public static string GenerateSlug(string input)
         {
-            if (string.IsNullOrWhiteSpace(input))
-                return string.Empty;
+            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
 
-            input = input.ToLower();
-            input = input.Normalize(NormalizationForm.FormD);
+            var slug = input.ToLowerInvariant();
+            slug = WhitespaceRegex().Replace(slug, "-");
+            slug = InvalidCharsRegex().Replace(slug, "");
+            slug = MultipleHyphensRegex().Replace(slug, "-");
+            slug = slug.Trim('-');
 
-            var sb = new StringBuilder();
-            foreach (char c in input)
-            {
-                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                    sb.Append(c);
-            }
-
-            var result  = sb.ToString().Normalize(NormalizationForm.FormC);
-            result      = MyRegex().Replace(result, "-");
-            result      = MyRegex1().Replace(result, "");
-
-            return result;
+            return slug;
         }
     }
 }

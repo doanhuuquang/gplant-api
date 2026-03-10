@@ -9,11 +9,11 @@ namespace Gplant.Infrastructure.Seeds
         public static async Task SeedAsync(RoleManager<Role> roleManager)
         {
             string[] roles =
-            {
+            [
+                Roles.Customer,
+                Roles.Manager,
                 Roles.Admin,
-                Roles.User,
-                Roles.Manager
-            };
+            ];
 
             foreach (var role in roles) 
                 if (!await roleManager.RoleExistsAsync(role)) await roleManager.CreateAsync(new Role { Name = role });

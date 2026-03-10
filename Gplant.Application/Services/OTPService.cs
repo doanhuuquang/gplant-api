@@ -1,8 +1,11 @@
-﻿using Gplant.Application.Abstracts;
+﻿using Gplant.Application.Interfaces;
 using Microsoft.AspNetCore.Identity;
-using Gplant.Domain.DTOs.Requests;
 using Gplant.Domain.Entities;
 using Gplant.Domain.Exceptions;
+using Gplant.Domain.DTOs.Requests.OTP;
+using Gplant.Domain.Exceptions.User;
+using Gplant.Domain.DTOs.Requests.Email;
+using Gplant.Domain.Exceptions.OTP;
 
 namespace Gplant.Application.Services
 {

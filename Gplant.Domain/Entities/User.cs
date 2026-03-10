@@ -18,10 +18,5 @@ namespace Gplant.Domain.Entities
                 Email       = email,
             };
         }
-
-        public override string ToString()
-        {
-            return $"{FirstName} {LastName}";
-        }
     }
 }

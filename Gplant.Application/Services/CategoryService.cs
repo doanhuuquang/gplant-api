@@ -1,102 +1,237 @@
-﻿using Gplant.Application.Abstracts;
-using Gplant.Application.Helpers;
-using Gplant.Domain.DTOs.Requests;
+﻿using Gplant.Application.Helpers;
+using Gplant.Application.Interfaces;
+using Gplant.Domain.DTOs.Requests.Category;
+using Gplant.Domain.DTOs.Responses;
 using Gplant.Domain.Entities;
-using Gplant.Domain.Exceptions;
+using Gplant.Domain.Exceptions.Category;
+using Gplant.Domain.Exceptions.Media;
 
 namespace Gplant.Application.Services
 {
-    public class CategoryService(ICategoryRepository categoryRepository) : ICategoryService
+    public class CategoryService(ICategoryRepository categoryRepository, IMediaRepository mediaRepository) : ICategoryService
     {
-        public async Task<List<Category>> GetCategoriesAsync()
+        public async Task<List<CategoryResponse>> GetCategoriesAsync()
         {
-            return await categoryRepository.GetCategoriesAsync();
+            var categories = await categoryRepository.GetCategoriesAsync();
+            
+            var responses = new List<CategoryResponse>();
+            foreach (var category in categories)
+            {
+                responses.Add(await MapToResponseAsync(category));
+            }
+            
+            return responses;
         }
 
-        public async Task CreateCategoryAsync(CreateCategoryRequest createCategoryRequest)
+        public async Task<List<CategoryResponse>> GetActiveCategoriesAsync()
         {
-            if (string.IsNullOrWhiteSpace(createCategoryRequest.Name)) throw new CategoryException("Category name is required");
-            if (string.IsNullOrWhiteSpace(createCategoryRequest.Description)) throw new CategoryException("Description name is required");
-            if (string.IsNullOrWhiteSpace(createCategoryRequest.ImageUrl)) throw new CategoryException("ImageUrl name is required");
-
-            Category? parentCategory = null;
-
-            if (createCategoryRequest.ParentId.HasValue)
+            var categories = await categoryRepository.GetActiveCategoriesAsync();
+            
+            var responses = new List<CategoryResponse>();
+            foreach (var category in categories)
             {
-                parentCategory = await categoryRepository.GetCategoryByIdAsync(createCategoryRequest.ParentId.Value) ?? throw new CategoryException("Parent category does not exist");
+                responses.Add(await MapToResponseAsync(category));
             }
+            
+            return responses;
+        }
 
-            var slug = SlugHelper.GenerateSlug(createCategoryRequest.Name);
+        public async Task<CategoryResponse> GetCategoryByIdAsync(Guid id)
+        {
+            var category = await categoryRepository.GetCategoryByIdAsync(id)
+                ?? throw new CategoryNotFoundException($"Category with ID {id} not found");
 
+            return await MapToResponseAsync(category);
+        }
+
+        public async Task<CategoryResponse> GetCategoryBySlugAsync(string slug)
+        {
+            var category = await categoryRepository.GetCategoryBySlugAsync(slug)
+                ?? throw new CategoryNotFoundException($"Category with slug '{slug}' not found");
+
+            return await MapToResponseAsync(category);
+        }
+
+        public async Task<List<CategoryResponse>> GetSubCategoriesByParentIdAsync(Guid? parentId)
+        {
+            var categories = await categoryRepository.GetSubCategoriesByParentIdAsync(parentId);
+            
+            var responses = new List<CategoryResponse>();
+            foreach (var category in categories)
+            {
+                responses.Add(await MapToResponseAsync(category));
+            }
+            
+            return responses;
+        }
+
+        public async Task CreateCategoryAsync(CreateCategoryRequest request)
+        {
+            // Validation
+            if (string.IsNullOrWhiteSpace(request.Name))
+                throw new CategoryException("Category name is required");
+            if (string.IsNullOrWhiteSpace(request.Description))
+                throw new CategoryException("Description is required");
+
+            // Validate media exists
+            if (request.MediaId.HasValue)
+                _ = await mediaRepository.GetByIdAsync(request.MediaId.Value) ?? throw new MediaNotFoundException("Media not found");
+
+            // Validate parent category
+            if (request.ParentId.HasValue)
+                _ = await categoryRepository.GetCategoryByIdAsync(request.ParentId.Value) ?? throw new CategoryNotFoundException("Parent category does not exist");
+
+            // Generate slug
+            var slug = SlugHelper.GenerateSlug(request.Name);
+
+            // Check slug uniqueness
             var existingCategory = await categoryRepository.GetCategoryBySlugAsync(slug);
+            if (existingCategory != null)
+                throw new CategoryException("Category with the same name already exists");
 
-            if (existingCategory != null) throw new CategoryException("Category with the same name already exists");
-
+            // Create category
             var category = new Category
             {
-                Id          = Guid.NewGuid(),
-                Name        = createCategoryRequest.Name,
-                Description = createCategoryRequest.Description,
-                ImageUrl    = createCategoryRequest.ImageUrl,
-                Slug        = slug,
-                ParentId    = parentCategory?.Id,
+                Id = Guid.NewGuid(),
+                Name = request.Name,
+                Description = request.Description,
+                MediaId = request.MediaId,
+                Slug = slug,
+                ParentId = request.ParentId,
+                IsActive = true,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
             };
 
             await categoryRepository.CreateCategoryAsync(category);
         }
 
-        public async Task UpdateCategoryAsync(Guid id, UpdateCategoryRequest updateCategoryRequest)
+        public async Task UpdateCategoryAsync(Guid id, UpdateCategoryRequest request)
         {
-            if (string.IsNullOrWhiteSpace(updateCategoryRequest.Name)) throw new CategoryException("Category name is required");
-            if (string.IsNullOrWhiteSpace(updateCategoryRequest.Description)) throw new CategoryException("Description name is required");
-            if (string.IsNullOrWhiteSpace(updateCategoryRequest.ImageUrl)) throw new CategoryException("ImageUrl name is required");
+            // Validation
+            if (string.IsNullOrWhiteSpace(request.Name))
+                throw new CategoryException("Category name is required");
+            if (string.IsNullOrWhiteSpace(request.Description))
+                throw new CategoryException("Description is required");
 
-            var slug = SlugHelper.GenerateSlug(updateCategoryRequest.Name);
+            // Get existing category
+            var category = await categoryRepository.GetCategoryByIdAsync(id)
+                ?? throw new CategoryNotFoundException($"Category with ID {id} not found");
 
-            Category? existingCategory = await categoryRepository.GetCategoryByIdAsync(id) ?? throw new CategoryException("Category does not exist");
+            // Validate media exists
+            if (request.MediaId.HasValue)
+                _ = await mediaRepository.GetByIdAsync(request.MediaId.Value) ?? throw new MediaNotFoundException("Media not found");
 
-            Category? parentCategory = null;
-            if (updateCategoryRequest.ParentId.HasValue)
+            // Validate parent category
+            if (request.ParentId.HasValue)
             {
-                parentCategory = await categoryRepository.GetCategoryByIdAsync(updateCategoryRequest.ParentId.Value) ?? throw new CategoryException("Parent category does not exist");
+                // Prevent self-reference
+                if (id == request.ParentId.Value) throw new CategoryException("A category cannot be its own parent");
+                _ = await categoryRepository.GetCategoryByIdAsync(request.ParentId.Value) ?? throw new CategoryNotFoundException("Parent category does not exist");
+
+                // Check circular reference
+                var hasCircularReference = await CheckCircularReferenceAsync(id, request.ParentId.Value);
+                if (hasCircularReference)
+                    throw new CategoryException("Cannot set parent: This would create a circular reference");
             }
 
-            if (existingCategory.Id == updateCategoryRequest.ParentId) throw new CategoryException("A category cannot be its own parent.");
+            // Generate slug
+            var slug = SlugHelper.GenerateSlug(request.Name);
 
+            // Check slug uniqueness
             var existingWithSameSlug = await categoryRepository.GetCategoryBySlugAsync(slug);
-            if (existingWithSameSlug != null && existingWithSameSlug.Id != existingCategory.Id) throw new CategoryException("Category with the same name already exists");
+            if (existingWithSameSlug != null && existingWithSameSlug.Id != id)
+                throw new CategoryException("Category with the same name already exists");
 
-            existingCategory.Name           = updateCategoryRequest.Name;
-            existingCategory.Description    = updateCategoryRequest.Description;
-            existingCategory.ImageUrl       = updateCategoryRequest.ImageUrl;
-            existingCategory.Slug           = slug;
-            existingCategory.ParentId       = parentCategory?.Id;
-            existingCategory.IsActive       = updateCategoryRequest.IsActive;
-            existingCategory.UpdatedAtUtc   = DateTime.UtcNow;
+            // Update category
+            category.Name = request.Name;
+            category.Description = request.Description;
+            category.MediaId = request.MediaId;
+            category.Slug = slug;
+            category.ParentId = request.ParentId;
+            category.IsActive = request.IsActive;
+            category.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-            await categoryRepository.UpdateCategoryAsync(existingCategory);
+            await categoryRepository.UpdateCategoryAsync(category);
         }
 
         public async Task DeleteCategoryAsync(Guid id)
         {
-            var existingCategory = await categoryRepository.GetCategoryByIdAsync(id) 
-                                ?? throw new CategoryException("Category does not exist");
+            var category = await categoryRepository.GetCategoryByIdAsync(id) ?? throw new CategoryNotFoundException($"Category with ID {id} not found");
 
-            var childCategories = await categoryRepository.GetCategoriesByParentId(existingCategory.Id);
-            if (childCategories.Count > 0) 
-                throw new CategoryException("Cannot delete category with existing subcategories. Please delete or reassign its subcategories first.");
+            // Check for child categories
+            var childCategories = await categoryRepository.GetSubCategoriesByParentIdAsync(id);
+            if (childCategories.Count > 0) throw new CategoryException("Cannot delete category with existing subcategories. Please delete or reassign them first.");
 
-            await categoryRepository.DeleteCategoryAsync(existingCategory);
+            var hasPlants = await categoryRepository.HasPlantsAsync(id);
+            if (hasPlants) throw new CategoryException("Cannot delete category that is being used by products. Please reassign or delete the products first.");
+
+
+            await categoryRepository.DeleteCategoryAsync(category);
         }
 
         public async Task ToggleActiveAsync(Guid id)
         {
-            var category = await categoryRepository.GetCategoryByIdAsync(id) ?? throw new CategoryException("Category not found.");
+            var category = await categoryRepository.GetCategoryByIdAsync(id)
+                ?? throw new CategoryNotFoundException($"Category with ID {id} not found");
 
-            category.IsActive       = !category.IsActive;
-            category.UpdatedAtUtc   = DateTime.UtcNow;
+            category.IsActive = !category.IsActive;
+            category.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
             await categoryRepository.UpdateCategoryAsync(category);
+        }
+
+        private async Task<CategoryResponse> MapToResponseAsync(Category category)
+        {
+            Media? media = null;
+
+            if (category.MediaId.HasValue)
+            {
+                media = await mediaRepository.GetByIdAsync(category.MediaId.Value);
+            }
+
+            return new CategoryResponse
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Slug = category.Slug,
+                Description = category.Description,
+                Media = media,
+                ParentId = category.ParentId,
+                IsActive = category.IsActive,
+                CreatedAtUtc = category.CreatedAtUtc,
+                UpdatedAtUtc = category.UpdatedAtUtc
+            };
+        }
+
+        private async Task<bool> CheckCircularReferenceAsync(Guid categoryId, Guid newParentId)
+        {
+            var currentId = newParentId;
+            var visited = new HashSet<Guid> { categoryId };
+            var maxIterations = 100;
+            var iterations = 0;
+
+            while (currentId != Guid.Empty && iterations < maxIterations)
+            {
+                if (visited.Contains(currentId))
+                {
+                    return true;  // Circular reference detected
+                }
+
+                visited.Add(currentId);
+
+                var current = await categoryRepository.GetCategoryByIdAsync(currentId);
+
+                if (current?.ParentId == null)
+                {
+                    break;  // Reached root
+                }
+
+                currentId = current.ParentId.Value;
+                iterations++;
+            }
+
+            return false;
         }
     }
 }
