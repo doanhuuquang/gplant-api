@@ -8,9 +8,11 @@ namespace Gplant.Application.Interfaces
         Task<Media?> GetByFileHashAsync(string fileHash);
         Task<List<Media>> GetAllAsync(int pageNumber = 1, int pageSize = 50, string? searchTerm = null);
         Task<int> GetTotalCountAsync(string? searchTerm = null);
+        Task<int> GetTotalCountByFolderAsync(Guid folderId);
         Task<Media> CreateAsync(Media media);
         Task DeleteAsync(Guid id);
         Task<bool> IsMediaInUseAsync(Guid mediaId);
         Task<bool> HasMediaByUserIdAsync(Guid userId);
+        Task<List<Media>> GetByFolderIdAsync(Guid folderId, int pageNumber = 1, int pageSize = 50);
     }
 }

@@ -125,7 +125,8 @@ namespace Gplant.API.Controllers
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword(ResetPasswordRequest resetPasswordRequest)
         {
-            await accountService.ResetPasswordAsync(resetPasswordRequest);
+            var resetPasswordToken = HttpContext.Request.Cookies["RESET_PASSWORD_TOKEN"];
+            await accountService.ResetPasswordAsync(resetPasswordRequest, resetPasswordToken);
 
             var response = new SuccessResponse<object?>(
                 StatusCode  : StatusCodes.Status200OK,

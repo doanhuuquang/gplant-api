@@ -60,7 +60,7 @@ namespace Gplant.API.Controllers
         {
             var result = await userService.GetAllUsersAsync(filter);
 
-            var response = new SuccessResponse<PagedResult<UserResponse>>(
+            var response = new SuccessResponse<UserPagedResult>(
                 StatusCode: StatusCodes.Status200OK,
                 Message: "Get all users successful.",
                 Data: result,

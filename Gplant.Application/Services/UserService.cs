@@ -18,50 +18,46 @@ namespace Gplant.Application.Services
     {
         public async Task<UserResponse> GetCurrentUserAsync(ClaimsPrincipal principal)
         {
-            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier) 
-                ?? throw new UnauthorizedAccessException();
-            var user = await userManager.FindByIdAsync(userId) 
-                ?? throw new UserException("User not found.");
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException();
+            var user = await userManager.FindByIdAsync(userId) ?? throw new UserException("User not found.");
 
             return await MapToResponseAsync(user);
         }
 
-        public async Task<PagedResult<UserResponse>> GetAllUsersAsync(UserFilterRequest filter)
+        public async Task<UserPagedResult> GetAllUsersAsync(UserFilterRequest filter)
         {
             var query = userManager.Users.AsQueryable();
 
-            // Tìm kiếm
             if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
             {
                 var searchLower = filter.SearchTerm.ToLower();
                 query = query.Where(u =>
-                    u.Email!.ToLower().Contains(searchLower) ||
-                    u.UserName!.ToLower().Contains(searchLower) ||
-                    (u.FirstName != null && u.FirstName.ToLower().Contains(searchLower)) ||
-                    (u.LastName != null && u.LastName.ToLower().Contains(searchLower))
+                    u.Email!.Contains(searchLower, StringComparison.CurrentCultureIgnoreCase) ||
+                    u.UserName!.Contains(searchLower, StringComparison.CurrentCultureIgnoreCase) ||
+                    (u.FirstName != null && u.FirstName.Contains(searchLower, StringComparison.CurrentCultureIgnoreCase)) ||
+                    (u.LastName != null && u.LastName.Contains(searchLower, StringComparison.CurrentCultureIgnoreCase))
                 );
             }
 
-            // Lọc theo email confirmed
             if (filter.EmailConfirmed.HasValue)
             {
                 query = query.Where(u => u.EmailConfirmed == filter.EmailConfirmed.Value);
             }
 
             var totalCount = await query.CountAsync();
+            var activeUsersCount = await query.CountAsync(u => !u.LockoutEnd.HasValue || u.LockoutEnd <= DateTimeOffset.UtcNow);
+            var lockedUsersCount = totalCount - activeUsersCount;
+            var newUsersThisWeek = await query.CountAsync(u => u.CreatedAtUtc >= DateTime.UtcNow.AddDays(-7));
 
-            var users = await query
-                .OrderBy(u => u.Email)
-                .Skip((filter.PageNumber - 1) * filter.PageSize)
-                .Take(filter.PageSize)
-                .ToListAsync();
+            var users = await query.OrderBy(u => u.Email)
+                                   .Skip((filter.PageNumber - 1) * filter.PageSize)
+                                   .Take(filter.PageSize)
+                                   .ToListAsync();
 
             var userResponses = new List<UserResponse>();
             foreach (var user in users)
             {
                 var userResponse = await MapToResponseAsync(user);
-
-                // Lọc theo role
                 if (!string.IsNullOrWhiteSpace(filter.Role))
                 {
                     if (userResponse.Roles.Contains(filter.Role))
@@ -73,10 +69,13 @@ namespace Gplant.Application.Services
                 }
             }
 
-            return new PagedResult<UserResponse>
+            return new UserPagedResult
             {
                 Items = userResponses,
                 TotalCount = totalCount,
+                ActiveUsersCount = activeUsersCount,
+                LockedUsersCount = lockedUsersCount,
+                NewUsersThisWeek = newUsersThisWeek,
                 PageNumber = filter.PageNumber,
                 PageSize = filter.PageSize
             };

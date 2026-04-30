@@ -3,6 +3,7 @@
     public class Media
     {
         public Guid Id { get; set; }
+        public Guid FolderId { get; set; }
         public required string FileName { get; set; }
         public required string FilePath { get; set; }
         public required string FileUrl { get; set; }

@@ -5,6 +5,7 @@ namespace Gplant.Domain.DTOs.Responses
         public Guid Id { get; init; }
         public Guid OrderId { get; init; }
         public Guid PlantVariantId { get; init; }
+        public PlantResponse? Plant { get; init; }
         public string PlantName { get; init; } = string.Empty;
         public string VariantSKU { get; init; } = string.Empty;
         public float VariantSize { get; init; }
@@ -15,7 +16,7 @@ namespace Gplant.Domain.DTOs.Responses
         public decimal SubTotal { get; init; }
         public decimal DiscountAmount => SalePrice.HasValue ? (Price - SalePrice.Value) * Quantity : 0;
         public bool WasOnSale => SalePrice.HasValue;
-        public DateTime CreatedAtUtc { get; init; }
-        public DateTime UpdatedAtUtc { get; init; }
+        public DateTimeOffset CreatedAtUtc { get; init; }
+        public DateTimeOffset UpdatedAtUtc { get; init; }
     }
 }

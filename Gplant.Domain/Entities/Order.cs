@@ -11,12 +11,11 @@ namespace Gplant.Domain.Entities
         // Shipping Info
         public required string ShippingName { get; set; }
         public required string ShippingPhone { get; set; }
-        public required string ShippingAddress { get; set; }
-        public required string ShippingWard { get; set; }
-        public required string ShippingDistrict { get; set; }
-        public required string ShippingProvince { get; set; }
+        public required string Address { get; set; }
+        public required string BuildingName { get; set; }
+        public required string Longitude { get; set; }
+        public required string Latitude { get; set; }
         public string? ShippingNote { get; set; }
-        public string? ShippingEmail { get; set; }
         
         // Pricing
         public decimal SubTotal { get; set; }
@@ -27,19 +26,22 @@ namespace Gplant.Domain.Entities
         // Payment
         public PaymentMethod PaymentMethod { get; set; }
         public PaymentStatus PaymentStatus { get; set; }
-        public DateTime? PaidAtUtc { get; set; }
+        public DateTimeOffset? PaidAtUtc { get; set; }
         
         // Order Status
         public OrderStatus Status { get; set; }
         public string? CancellationReason { get; set; }
-        public DateTime? CancelledAtUtc { get; set; }
+        public DateTimeOffset? CancelledAtUtc { get; set; }
         
         // Payment tracking
         public string? PaymentTransactionId { get; set; }
         public string? PaymentGatewayResponse { get; set; }
-        public DateTime? PaymentAttemptedAtUtc { get; set; }
-        
-        public DateTime CreatedAtUtc { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
+        public string? VNPayTransactionId { get; set; }
+        public DateTimeOffset? PaymentAttemptedAtUtc { get; set; }
+
+        public DateTimeOffset CreatedAtUtc { get; set; }
+        public DateTimeOffset UpdatedAtUtc { get; set; }
+
+        public ICollection<Payment> Payments { get; set; } = [];
     }
 }

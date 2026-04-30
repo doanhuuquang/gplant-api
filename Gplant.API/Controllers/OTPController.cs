@@ -39,12 +39,12 @@ namespace Gplant.API.Controllers
         [HttpPost("verify")]
         public async Task<IActionResult> VerifyOTP(VerifyOTPRequest verifyOTPRequest)
         {
-            var resetPasswordToken = await otpService.VerifyOTPAsync(verifyOTPRequest);
+            await otpService.VerifyOTPAsync(verifyOTPRequest);
 
-            var response = new SuccessResponse<VerifyOTPResponse?>(
+            var response = new SuccessResponse<object>(
                 StatusCode: 200,
                 Message: "OTP verified successfully.",
-                Data: new VerifyOTPResponse { ResetToken = resetPasswordToken ?? "" },
+                Data: null,
                 Timestamp: DateTime.UtcNow
             );
 

@@ -7,7 +7,7 @@ namespace Gplant.Application.Interfaces
     public interface IUserService
     {
         Task<UserResponse> GetCurrentUserAsync(ClaimsPrincipal principal);
-        Task<PagedResult<UserResponse>> GetAllUsersAsync(UserFilterRequest filter);
+        Task<UserPagedResult> GetAllUsersAsync(UserFilterRequest filter);
         Task<UserResponse> GetUserByIdAsync(Guid id);
         Task UpdateUserAsync(Guid id, UpdateUserRequest request);
         Task DeleteUserAsync(Guid id);

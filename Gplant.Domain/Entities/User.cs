@@ -9,6 +9,7 @@ namespace Gplant.Domain.Entities
         public string? ProfilePictureUrl { get; set; }
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiresAtUtc { get; set; }
+        public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 
         public static User Create(string email)
         {

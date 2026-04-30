@@ -1,4 +1,4 @@
-using Gplant.Application.Interfaces;
+﻿using Gplant.Application.Interfaces;
 using Gplant.Domain.DTOs.Requests.Order;
 using Gplant.Domain.DTOs.Responses;
 using Gplant.Domain.Entities;
@@ -93,7 +93,7 @@ namespace Gplant.Infrastructure.Repositories
 
         public async Task<int> GetOrderCountTodayAsync()
         {
-            var today = DateTime.UtcNow.Date;
+            var today = DateTimeOffset.UtcNow.Date;
             return await context.Orders
                 .CountAsync(o => o.CreatedAtUtc >= today);
         }
@@ -106,12 +106,12 @@ namespace Gplant.Infrastructure.Repositories
 
         public async Task UpdateAsync(Order order)
         {
-            order.UpdatedAtUtc = DateTime.UtcNow;
+            order.UpdatedAtUtc = DateTimeOffset.UtcNow;
             context.Orders.Update(order);
             await context.SaveChangesAsync();
         }
 
-        public async Task<List<Order>> GetOrdersWithPaymentTimeoutAsync(DateTime cutoffTime)
+        public async Task<List<Order>> GetOrdersWithPaymentTimeoutAsync(DateTimeOffset cutoffTime)
         {
             return await context.Orders
                 .Where(o => o.PaymentStatus == PaymentStatus.AwaitingPayment 
@@ -122,6 +122,73 @@ namespace Gplant.Infrastructure.Repositories
         public async Task<bool> HasOrdersByUserIdAsync(Guid userId)
         {
             return await context.Orders.AnyAsync(o => o.UserId == userId);
+        }
+
+        public async Task<List<Order>> GetOrdersTimeoutAsync(PaymentMethod paymentMethod, DateTimeOffset cutoff)
+        {
+            var targetStatuses = new[] { PaymentStatus.Pending, PaymentStatus.AwaitingPayment, PaymentStatus.Failed };
+
+            return await context.Orders
+                .Where(o => targetStatuses.Contains(o.PaymentStatus)
+                    && o.Status == OrderStatus.Pending
+                    && o.PaymentMethod == paymentMethod
+                    && o.CreatedAtUtc < cutoff)
+                .ToListAsync();
+        }
+
+        public async Task<(int TodayOrderCount, decimal TodayRevenue, int PendingCount, int DeliveringCount)> GetDashboardStatsAsync()
+        {
+            var today = DateTimeOffset.UtcNow.Date;
+
+            // Lấy thông tin form hôm nay (Loại bỏ các đơn đã hủy hoặc hoàn tiền để tính doanh thu)
+            var todayOrders = await context.Orders
+                .Where(o => o.CreatedAtUtc >= today && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Refunded)
+                .ToListAsync();
+
+            var todayOrderCount = todayOrders.Count;
+            var todayRevenue = todayOrders.Sum(o => o.Total);
+
+            // Đếm các đơn hàng đang chờ xử lý và đang giao
+            var pendingCount = await context.Orders.CountAsync(o => o.Status == OrderStatus.Pending);
+            var deliveringCount = await context.Orders.CountAsync(o => o.Status == OrderStatus.Shipped);
+
+            return (todayOrderCount, todayRevenue, pendingCount, deliveringCount);
+        }
+
+        public async Task<List<Order>> GetRecentOrdersAsync(int limit = 5)
+        {
+            return await context.Orders
+                .OrderByDescending(o => o.CreatedAtUtc)
+                .Take(limit)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<Dictionary<DateTime, decimal>> GetRevenueChartDataAsync(int days = 7)
+        {
+            var startDate = DateTimeOffset.UtcNow.Date.AddDays(-days + 1);
+            
+            var orders = await context.Orders
+                .Where(o => o.CreatedAtUtc >= startDate && 
+                           o.Status != OrderStatus.Cancelled && 
+                           o.Status != OrderStatus.Refunded)
+                .Select(o => new { o.CreatedAtUtc.Date, o.Total })
+                .ToListAsync();
+
+            // Nhóm theo ngày và tính tổng doanh thu
+            var chartData = orders
+                .GroupBy(o => o.Date)
+                .ToDictionary(g => g.Key, g => g.Sum(o => o.Total));
+
+            // Đảm bảo những ngày không có đơn hàng vẫn trả về mảng có giá trị 0
+            var result = new Dictionary<DateTime, decimal>();
+            for (int i = 0; i < days; i++)
+            {
+                var date = startDate.AddDays(i);
+                result[date] = chartData.TryGetValue(date, out decimal value) ? value : 0;
+            }
+
+            return result;
         }
     }
 }

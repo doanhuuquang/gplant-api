@@ -182,7 +182,7 @@ namespace Gplant.Application.Services
                 banner.OrderIndex = newOrderIndex;
             }
 
-            banner.UpdatedAtUtc = DateTime.UtcNow;
+            banner.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await bannerRepository.UpdateBannerAsync(banner);
         }
 

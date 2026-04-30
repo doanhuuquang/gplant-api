@@ -5,6 +5,6 @@ namespace Gplant.Application.Interfaces
     public interface IOTPService
     {
         public Task SendOTPToEmailAsync(SendOTPToEmailRequest sendOTPToEmailRequest);
-        public Task<string?> VerifyOTPAsync(VerifyOTPRequest verifyOTPRequest);
+        public Task VerifyOTPAsync(VerifyOTPRequest verifyOTPRequest);
     }
 }

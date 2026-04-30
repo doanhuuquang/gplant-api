@@ -4,6 +4,7 @@ namespace Gplant.Domain.Entities
     {
         public Guid Id { get; set; }
         public Guid OrderId { get; set; }
+        public Guid PlantId { get; set; }
         public Guid PlantVariantId { get; set; }
         public required string PlantName { get; set; }
         public required string VariantSKU { get; set; }
@@ -13,7 +14,7 @@ namespace Gplant.Domain.Entities
         public decimal? SalePrice { get; set; }
         public decimal FinalPrice { get; set; }
         public decimal SubTotal { get; set; }
-        public DateTime CreatedAtUtc { get; set; }
-        public DateTime UpdatedAtUtc { get; set; }
+        public DateTimeOffset CreatedAtUtc { get; set; }
+        public DateTimeOffset UpdatedAtUtc { get; set; }
     }
 }

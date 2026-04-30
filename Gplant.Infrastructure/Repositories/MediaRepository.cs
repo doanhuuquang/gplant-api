@@ -53,6 +53,13 @@ namespace Gplant.Infrastructure.Repositories
             return await query.CountAsync();
         }
 
+        public async Task<int> GetTotalCountByFolderAsync(Guid folderId)
+        {
+            return await context.Medias
+                .Where(m => m.FolderId == folderId && !m.IsDeleted)
+                .CountAsync();
+        }
+
         public async Task<Media> CreateAsync(Media media)
         {
             await context.Medias.AddAsync(media);
@@ -87,6 +94,17 @@ namespace Gplant.Infrastructure.Repositories
         public async Task<bool> HasMediaByUserIdAsync(Guid userId)
         {
             return await context.Medias.AnyAsync(m => m.UploadedBy == userId && !m.IsDeleted);
+        }
+
+        public async Task<List<Media>> GetByFolderIdAsync(Guid folderId, int pageNumber = 1, int pageSize = 50)
+        {
+            var query = context.Medias
+                .Where(m => m.FolderId == folderId && !m.IsDeleted)
+                .OrderByDescending(m => m.CreatedAtUtc)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize);
+
+            return await query.ToListAsync();
         }
     }
 }

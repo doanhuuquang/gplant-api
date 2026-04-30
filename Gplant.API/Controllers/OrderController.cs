@@ -1,7 +1,11 @@
-using Gplant.API.ApiResponse;
+﻿using Gplant.API.ApiResponse;
 using Gplant.Application.Interfaces;
+using Gplant.Application.Services;
+using Gplant.Domain.Constants;
 using Gplant.Domain.DTOs.Requests.Order;
 using Gplant.Domain.DTOs.Responses;
+using Gplant.Domain.Enums;
+using Gplant.Domain.Exceptions.Order;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -11,7 +15,7 @@ namespace Gplant.API.Controllers
     [Route("api/orders")]
     [ApiController]
     [Authorize]
-    public class OrderController(IOrderService orderService) : ControllerBase
+    public class OrderController(IOrderService orderService, IOrderRepository orderRepository, IQRPaymentService qrPaymentService, IVNPayService vnPayService) : ControllerBase
     {
         /// <summary>
         /// Get my orders
@@ -41,7 +45,7 @@ namespace Gplant.API.Controllers
         {
             var orders = await orderService.GetAllOrdersAsync(filter);
 
-            var response = new SuccessResponse<PagedResult<OrderResponse>>(
+            var response = new SuccessResponse<OrderPagedResult>(
                 StatusCode: StatusCodes.Status200OK,
                 Message: "Get all orders successful.",
                 Data: orders,
@@ -58,7 +62,12 @@ namespace Gplant.API.Controllers
         public async Task<IActionResult> GetOrderById(Guid id)
         {
             var userId = GetCurrentUserId();
-            var order = await orderService.GetByIdAsync(id, userId);
+            var isAdminOrManager = User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager);
+
+            // Nếu là Admin/Manager thì truyền null để đi qua hàm Check Permission, nếu không thì truyền UserId
+            var targetUserId = isAdminOrManager ? (Guid?)null : userId;
+            
+            var order = await orderService.GetByIdAsync(id, targetUserId);
 
             var response = new SuccessResponse<OrderResponse>(
                 StatusCode: StatusCodes.Status200OK,
@@ -77,7 +86,10 @@ namespace Gplant.API.Controllers
         public async Task<IActionResult> GetOrderByNumber(string orderNumber)
         {
             var userId = GetCurrentUserId();
-            var order = await orderService.GetByOrderNumberAsync(orderNumber, userId);
+            var isAdminOrManager = User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager);
+
+            var targetUserId = isAdminOrManager ? (Guid?)null : userId;
+            var order = await orderService.GetByOrderNumberAsync(orderNumber, targetUserId);
 
             var response = new SuccessResponse<OrderResponse>(
                 StatusCode: StatusCodes.Status200OK,
@@ -167,21 +179,58 @@ namespace Gplant.API.Controllers
         }
 
         /// <summary>
-        /// Payment callback (for external payment gateways)
+        /// 
         /// </summary>
-        [HttpGet("payment/callback")]
-        [AllowAnonymous]
-        public async Task<IActionResult> PaymentCallback()
+        /// <param name="orderId"></param>
+        /// <returns></returns>
+        [HttpGet("{orderId}/qr-payment")]
+        public async Task<IActionResult> GetQrPayment(Guid orderId)
         {
-            var queryParams = Request.Query.ToDictionary(k => k.Key, v => v.Value.ToString());
-            var result = await orderService.ProcessPaymentCallbackAsync(queryParams);
-            
-            if (result.Success)
-            {
-                return Redirect($"/order-success?orderNumber={result.OrderNumber}");
-            }
-            
-            return Redirect($"/order-failed?message={result.Message}");
+            var userId = GetCurrentUserId();
+            var order = await orderService.GetByIdAsync(orderId, userId);
+            if (order.PaymentMethod != PaymentMethod.BankTransfer || order.PaymentStatus == PaymentStatus.Paid) return BadRequest("Order is not eligible for QR payment.");
+
+            var qrCodeBase64 = await qrPaymentService.GenerateVietQRCode(order.Total, order.OrderNumber);
+
+            var response = new SuccessResponse<string>(
+                StatusCode: StatusCodes.Status200OK,
+                Message: "Get order stats successful.",
+                Data: qrCodeBase64,
+                Timestamp: DateTime.UtcNow
+            );
+
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="orderId"></param>
+        /// <returns></returns>
+        [HttpGet("{orderId}/vnpay-url")]
+        public async Task<IActionResult> GetVNPayPaymentUrl(Guid orderId)
+        {
+            var order = await orderRepository.GetByIdAsync(orderId) ?? throw new OrderNotFoundException("Order not found.");
+            if (order.PaymentMethod != PaymentMethod.VNPay || order.PaymentStatus == PaymentStatus.Paid)
+                return BadRequest("Order is not eligible for VNPay payment.");
+
+            var remoteIp = HttpContext.Connection.RemoteIpAddress;
+            var ipAddress = remoteIp?.IsIPv4MappedToIPv6 == true
+                ? remoteIp.MapToIPv4().ToString()
+                : remoteIp?.ToString() ?? "127.0.0.1";
+
+            if (ipAddress == "::1") ipAddress = "127.0.0.1";
+
+            var paymentUrl = vnPayService.CreatePaymentUrl(order, ipAddress);
+
+            var response = new SuccessResponse<string>(
+                StatusCode: StatusCodes.Status200OK,
+                Message: "Get VNPay payment URL successful.",
+                Data: paymentUrl,
+                Timestamp: DateTime.UtcNow
+            );
+
+            return Ok(response);
         }
 
         private Guid GetCurrentUserId()

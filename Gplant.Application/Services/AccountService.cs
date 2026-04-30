@@ -268,12 +268,12 @@ namespace Gplant.Application.Services
             }
         }
 
-        public async Task ResetPasswordAsync(ResetPasswordRequest resetPasswordRequest) 
+        public async Task ResetPasswordAsync(ResetPasswordRequest resetPasswordRequest, string? resetPasswordToken) 
         {
             var user                = await userManager.FindByEmailAsync(resetPasswordRequest.Email) ?? throw new UserNotExistsException(email: resetPasswordRequest.Email);
-            var resetPasswordToken  = await actionTokenRepository.GetActionTokenAsync(user.Id, ActionTokenPurpose.ResetPassword) ?? throw new ActionTokenException("Invalid or expired reset password token.");
+            var resetPasswordTokenFromDb  = await actionTokenRepository.GetActionTokenAsync(user.Id, ActionTokenPurpose.ResetPassword) ?? throw new ActionTokenException("Invalid or expired reset password token.");
 
-            if (resetPasswordToken.Token != resetPasswordRequest.ResetPasswordToken) throw new ActionTokenException("Invalid reset password token.");
+            if (resetPasswordTokenFromDb.Token != resetPasswordToken) throw new ActionTokenException("Invalid reset password token.");
 
             user.PasswordHash   = userManager.PasswordHasher.HashPassword(user, resetPasswordRequest.NewPassword);
             user.SecurityStamp  = Guid.NewGuid().ToString();
@@ -282,8 +282,10 @@ namespace Gplant.Application.Services
 
             if (!result.Succeeded) throw new ResetPasswordException(result.Errors.Select(x => x.Description));
 
-            resetPasswordToken.IsUsed = true;
-            await actionTokenRepository.UpdateActionTokenAsync(resetPasswordToken);
+            resetPasswordTokenFromDb.IsUsed = true;
+            await actionTokenRepository.UpdateActionTokenAsync(resetPasswordTokenFromDb);
+
+            authTokenProcessor.DeleteAuthTokenCookie("RESET_PASSWORD_TOKEN");
         }
     }
 }

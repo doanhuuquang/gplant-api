@@ -9,7 +9,7 @@ using Gplant.Domain.Exceptions.OTP;
 
 namespace Gplant.Application.Services
 {
-    public class OTPService(UserManager<User> userManager, IOTPRepository otpRepository, IActionTokenRepository actionTokenRepository, IEmailProcessor emailProcessor) : IOTPService
+    public class OTPService(UserManager<User> userManager, IOTPRepository otpRepository, IActionTokenRepository actionTokenRepository, IEmailProcessor emailProcessor, IAuthTokenProcessor tokenProcessor) : IOTPService
     {
         public async Task SendOTPToEmailAsync(SendOTPToEmailRequest sendOTPToEmailRequest)
         {
@@ -30,7 +30,7 @@ namespace Gplant.Application.Services
             }
         }
 
-        public async Task<string?> VerifyOTPAsync(VerifyOTPRequest verifyOTPRequest)
+        public async Task VerifyOTPAsync(VerifyOTPRequest verifyOTPRequest)
         {
             var otp = await otpRepository.GetOTPAsync(verifyOTPRequest.Email) ?? throw new OTPException("Invalid or expired OTP. Please request a new one.");
 
@@ -43,7 +43,7 @@ namespace Gplant.Application.Services
 
             await otpRepository.UpdateOTPAsync(otp);
 
-            return resetPasswordToken.Token;
+            tokenProcessor.WriteAuthTokenAsHttpOnlyCookie("RESET_PASSWORD_TOKEN", resetPasswordToken.Token, DateTime.UtcNow.AddMinutes(15));
         }
     }
 }

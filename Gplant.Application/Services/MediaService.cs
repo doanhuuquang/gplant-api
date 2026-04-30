@@ -1,6 +1,7 @@
 ﻿using Gplant.Application.Interfaces;
 using Gplant.Domain.DTOs.Responses;
 using Gplant.Domain.Entities;
+using Gplant.Domain.Exceptions.Folder;
 using Gplant.Domain.Exceptions.Media;
 using Gplant.Domain.Exceptions.User;
 using Microsoft.AspNetCore.Http;
@@ -11,66 +12,57 @@ using System.Threading.Tasks;
 
 namespace Gplant.Application.Services
 {
-    public class MediaService(IMediaRepository mediaRepository, UserManager<User> userManager) : IMediaService
+    public class MediaService(IMediaRepository mediaRepository, IFolderService folderService, UserManager<User> userManager) : IMediaService
     {
         private readonly string uploadPath = "wwwroot/uploads";
         private readonly string baseUrl = "/uploads";
 
-        public async Task<MediaResponse> UploadImageAsync(IFormFile file, Guid uploadedBy)
+        public async Task<MediaResponse> UploadImageAsync(IFormFile file, Guid uploadedBy, Guid folderId)
         {
-            // Validation
+            _ = await folderService.GetByIdAsync(folderId) ?? throw new FolderNotFoundException($"Folder with ID {folderId} not found");
+
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg" };
             var extension = Path.GetExtension(file.FileName).ToLower();
 
-            if (!allowedExtensions.Contains(extension))
-                throw new InvalidFileException("Only image files (.jpg, .jpeg, .png, .webp, .gif, .svg) are allowed");
+            if (!allowedExtensions.Contains(extension)) throw new InvalidFileException("Only image files (.jpg, .jpeg, .png, .webp, .gif, .svg) are allowed");
+            if (file.Length > 5 * 1024 * 1024) throw new InvalidFileException("File size must be less than 5MB");
+            if (!file.ContentType.StartsWith("image/")) throw new InvalidFileException("Invalid image file");
 
-            if (file.Length > 5 * 1024 * 1024)  // 5MB
-                throw new InvalidFileException("File size must be less than 5MB");
-
-            if (!file.ContentType.StartsWith("image/"))
-                throw new InvalidFileException("Invalid image file");
-
-            // Calculate file hash (detect duplicate)
             string fileHash;
             using (var stream = file.OpenReadStream())
             {
                 fileHash = await ComputeFileHashAsync(stream);
-                stream.Position = 0;  // Reset stream
+                stream.Position = 0;
             }
 
-            // Check if file already exists
             var existingMedia = await mediaRepository.GetByFileHashAsync(fileHash);
             if (existingMedia != null)
             {
                 return await MapToResponseAsync(existingMedia);
             }
 
-            // Generate unique filename
             var fileName = $"{Guid.NewGuid()}{extension}";
             var year = DateTime.UtcNow.Year;
             var month = DateTime.UtcNow.Month;
-            var folder = $"images/{year}/{month:D2}";
-            var relativePath = $"{folder}/{fileName}";
+            var folderPath = $"images/{year}/{month:D2}";
+            var relativePath = $"{folderPath}/{fileName}";
             var fullPath = Path.Combine(uploadPath, relativePath);
 
-            // Ensure directory exists
             var directory = Path.GetDirectoryName(fullPath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            // Save file
             await using (var stream = new FileStream(fullPath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
-            // Create media record
             var media = new Media
             {
                 Id = Guid.NewGuid(),
+                FolderId = folderId,
                 FileName = file.FileName,
                 FilePath = relativePath,
                 FileUrl = $"{baseUrl}/{relativePath}",
@@ -83,6 +75,8 @@ namespace Gplant.Application.Services
             };
 
             await mediaRepository.CreateAsync(media);
+
+            await folderService.UpdateMediaCountAsync(folderId, 1);
 
             return await MapToResponseAsync(media);
         }
@@ -114,6 +108,28 @@ namespace Gplant.Application.Services
             };
         }
 
+        public async Task<PagedResult<MediaResponse>> GetByFolderIdAsync(Guid folderId, int pageNumber = 1, int pageSize = 50)
+        {
+            await folderService.GetByIdAsync(folderId);
+
+            var medias = await mediaRepository.GetByFolderIdAsync(folderId, pageNumber, pageSize);
+            var totalCount = await mediaRepository.GetTotalCountByFolderAsync(folderId);
+
+            var items = new List<MediaResponse>();
+            foreach (var media in medias)
+            {
+                items.Add(await MapToResponseAsync(media));
+            }
+
+            return new PagedResult<MediaResponse>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+
         public async Task DeleteAsync(Guid id)
         {
             var media = await mediaRepository.GetByIdAsync(id)
@@ -128,6 +144,9 @@ namespace Gplant.Application.Services
 
             // Soft delete in DB
             await mediaRepository.DeleteAsync(id);
+
+            // Update folder media count
+            await folderService.UpdateMediaCountAsync(media.FolderId, -1);
 
             // Delete physical file
             var fullPath = Path.Combine(uploadPath, media.FilePath);

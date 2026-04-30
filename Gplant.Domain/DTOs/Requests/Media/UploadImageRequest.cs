@@ -2,9 +2,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace Gplant.Domain.DTOs.Requests.Media
 {
-    public record UploadImageRequest
+    public class UploadImageRequest
     {
-        public required IFormFile File { get; init; }
-        public string Folder { get; init; } = "general";
+        public required IFormFile File { get; set; }
+        public required Guid FolderId { get; set; }
+        public string? Folder { get; set; } = "general";
     }
 }

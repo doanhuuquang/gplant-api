@@ -1,5 +1,6 @@
 ﻿using Gplant.API.ApiResponse;
 using Gplant.API.Handlers;
+using Gplant.Application.AIPlugins;
 using Gplant.Application.Interfaces;
 using Gplant.Application.Security;
 using Gplant.Application.Services;
@@ -7,7 +8,6 @@ using Gplant.Domain.Constants;
 using Gplant.Domain.Entities;
 using Gplant.Infrastructure;
 using Gplant.Infrastructure.Options;
-using Gplant.Infrastructure.PaymentGateways;
 using Gplant.Infrastructure.Processors;
 using Gplant.Infrastructure.Repositories;
 using Gplant.Infrastructure.Seed;
@@ -21,8 +21,11 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using VNPAY.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddHttpClient();
 
 builder.Services.AddCors(options =>
 {
@@ -49,7 +52,6 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.JwtOptionsKey));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.EmailOptionsKey));
-builder.Services.Configure<VNPayConfig>(builder.Configuration.GetSection("VNPay"));
 
 builder.Services.AddIdentity<User, Role>(options =>
 {
@@ -87,6 +89,9 @@ builder.Services.AddScoped<ICartItemRepository, CartItemRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderItemRepository, OrderItemRepository>();
 builder.Services.AddScoped<IMediaRepository, MediaRepository>();
+builder.Services.AddScoped<IFolderRepository, FolderRepository>();
+builder.Services.AddScoped<IShippingAddressRepository, ShippingAddressRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IOTPService, OTPService>();
@@ -100,10 +105,13 @@ builder.Services.AddScoped<ICareInstructionService, CareInstructionService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<ILightningSaleService, LightningSaleService>();
 builder.Services.AddScoped<ICartService, CartService>();
-builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IOTPGenerator, OTPGenerator>();
-builder.Services.AddScoped<IPaymentService, VNPayService>();
+builder.Services.AddScoped<IVNPayService, VNPayService>();
+builder.Services.AddScoped<IQRPaymentService, QRPaymentService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<IFolderService, FolderService>();
+builder.Services.AddScoped<IShippingAddressService, ShippingAddressService>();
 
 builder.Services
     .AddAuthentication(options =>
@@ -254,6 +262,11 @@ builder.Services.AddAuthorizationBuilder()
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddHostedService<OrderTimeoutBackgroundService>();
+builder.Services.AddScoped<PlantPlugin>();
+builder.Services.AddScoped<OrderPlugin>();
+builder.Services.AddScoped<AIChatService>(); 
 
 var app = builder.Build();
 

@@ -21,6 +21,6 @@ namespace Gplant.Application.Interfaces
 
         Task RecoverUsernameAsync(RecoverUsernameRequest recoverUsernameRequest);
 
-        Task ResetPasswordAsync(ResetPasswordRequest resetPasswordRequest);
+        Task ResetPasswordAsync(ResetPasswordRequest resetPasswordRequest, string? resetPasswordToken);
     }
 }

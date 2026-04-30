@@ -1,4 +1,4 @@
-using Gplant.API.ApiResponse;
+﻿using Gplant.API.ApiResponse;
 using Gplant.Application.Interfaces;
 using Gplant.Domain.DTOs.Responses;
 using Microsoft.AspNetCore.Authorization;
@@ -9,17 +9,23 @@ namespace Gplant.API.Controllers
 {
     [Route("api/medias")]
     [ApiController]
-    [Authorize(Policy = "AdminOrManager")]
-    public class MediaController(IMediaService mediaService) : ControllerBase
+    public class MediaController(IMediaService mediaService, IFolderService folderService) : ControllerBase
     {
         /// <summary>
-        /// Upload image
+        /// Upload image to folder
         /// </summary>
         [HttpPost("upload")]
-        public async Task<ActionResult<MediaResponse>> UploadImage(IFormFile file)
+        [Authorize]
+        public async Task<ActionResult<MediaResponse>> UploadImage(
+            IFormFile file,
+            Guid? folderId)
         {
             var userId = GetCurrentUserId();
-            var media = await mediaService.UploadImageAsync(file, userId);
+            
+            // Nếu không chỉ định folder, dùng folder mặc định
+            var actualFolderId = folderId ?? (await folderService.GetOrCreateUserUploadFolderAsync()).Id;
+            
+            var media = await mediaService.UploadImageAsync(file, userId, actualFolderId);
 
             var response = new SuccessResponse<MediaResponse>(
                 StatusCode: StatusCodes.Status201Created,
@@ -53,7 +59,7 @@ namespace Gplant.API.Controllers
         /// Get all media (paginated with search)
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<MediaResponse>> GetAllMedia(
+        public async Task<ActionResult<PagedResult<MediaResponse>>> GetAllMedia(
             [FromQuery] int pageNumber = 1, 
             [FromQuery] int pageSize = 50,
             [FromQuery] string? searchTerm = null)
@@ -71,10 +77,32 @@ namespace Gplant.API.Controllers
         }
 
         /// <summary>
+        /// Get media by folder ID (paginated)
+        /// </summary>
+        [HttpGet("folder/{folderId:guid}")]
+        public async Task<ActionResult<PagedResult<MediaResponse>>> GetMediaByFolder(
+            Guid folderId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 50)
+        {
+            var result = await mediaService.GetByFolderIdAsync(folderId, pageNumber, pageSize);
+
+            var response = new SuccessResponse<PagedResult<MediaResponse>>(
+                StatusCode: StatusCodes.Status200OK,
+                Message: "Get media by folder successful.",
+                Data: result,
+                Timestamp: DateTime.UtcNow
+            );
+
+            return Ok(response);
+        }
+
+        /// <summary>
         /// Delete media
         /// </summary>
         [HttpDelete("{id:guid}")]
-        public async Task<ActionResult<MediaResponse>> DeleteMedia(Guid id)
+        [Authorize]
+        public async Task<ActionResult<object?>> DeleteMedia(Guid id)
         {
             await mediaService.DeleteAsync(id);
 

@@ -200,6 +200,20 @@ namespace Gplant.Application.Services
                 var plant = variant != null ? await plantService.GetByIdAsync(variant.PlantId) : null;
                 var inventory = await inventoryRepository.GetByPlantVariantIdAsync(item.PlantVariantId);
 
+                var lightningSaleItemResponse = await lightningSaleService.GetLightningSaleItemByVariantAsync(item.PlantVariantId);
+
+                decimal? salePrice = lightningSaleItemResponse?.SalePrice;
+                int discountedQuantity = 0;
+
+                if (lightningSaleItemResponse != null && salePrice.HasValue)
+                {
+                    var remaining = lightningSaleItemResponse.QuantityLimit - lightningSaleItemResponse.QuantitySold;
+                    if (remaining > 0)
+                    {
+                        discountedQuantity = (int)Math.Min(item.Quantity, remaining);
+                    }
+                }
+
                 itemResponses.Add(new CartItemResponse
                 {
                     Id = item.Id,
@@ -209,7 +223,8 @@ namespace Gplant.Application.Services
                     Plant = plant,
                     Quantity = item.Quantity,
                     Price = item.Price,
-                    SalePrice = item.SalePrice,
+                    SalePrice = salePrice,
+                    DiscountedQuantity = discountedQuantity,
                     IsInStock = inventory != null && inventory.QuantityAvailable >= item.Quantity,
                     CreatedAtUtc = item.CreatedAtUtc,
                     UpdatedAtUtc = item.UpdatedAtUtc
